@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NEWSROOM WORLD MAP Editor v2.8.4</title>
+<title>NEWSROOM WORLD MAP Editor v2.8.8</title>
 <script src='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js'></script>
 <link href='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css' rel='stylesheet'/>
 <!-- osmtogeojson: Overpass API → GeoJSON 변환 (해안선 정밀 경계용) -->
@@ -202,7 +202,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       </div>
       <div class="token-hint">팀 내부 전용 도구입니다. 비밀번호는 허성운 디자이너에게 문의하세요.</div>
       <div class="login-err" id="login-err">&#9888; 비밀번호가 올바르지 않습니다.</div>
-      <div style="text-align:right;margin-top:16px;font-size:9px;color:var(--text3);letter-spacing:.06em">Made by Seong un &nbsp;·&nbsp; v2.8.4</div>
+      <div style="text-align:right;margin-top:16px;font-size:9px;color:var(--text3);letter-spacing:.06em">Made by Seong un &nbsp;·&nbsp; v2.8.8</div>
     </div>
   </div>
   <!-- 로그인 경고문구 -->
@@ -265,17 +265,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
         </div>
       </div>
       <div class="section">
-        <div class="section-label">비선택 국가</div>
-        <div class="color-row"><span class="color-label">배경 국가 색상</span><div class="color-swatch-wrap"><div class="color-swatch" id="sw-other" style="background:#161820"><input type="color" id="c-other" value="#161820" oninput="updateStyle()"></div><span class="color-hex" id="hx-other">#161820</span></div></div>
-        <div class="slider-row"><span class="slider-label">배경 투명도</span><input type="range" id="sl-oo" min="0" max="1" step=".05" value="0" oninput="updateStyle()"><span class="slider-val" id="vl-oo">0%</span></div>
-      </div>
-      <div class="section">
         <div class="section-label">지도 스타일</div>
         <div class="style-grid">
           <div class="style-opt active" onclick="changeStyle('dark-v11',this)">뉴스룸 기본지도</div>
           <div class="style-opt" onclick="changeStyle('satellite-streets-v12',this)">위성+거리</div>
         </div>
         <div class="toggle-row" style="margin-top:10px">
+          <span class="toggle-label">내륙 표시 (Rivers / Borders)</span>
+          <label class="toggle"><input type="checkbox" id="tg-inland" onchange="toggleInland()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="toggle-row">
           <span class="toggle-label">지명 표시 (Labels)</span>
           <label class="toggle"><input type="checkbox" id="tg-labels" onchange="toggleLabels()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
         </div>
@@ -300,6 +299,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   <div id="hint">지도를 클릭하여 국가를 선택하세요</div>
   <!-- 뷰포트 경고 배지 (DOM 요소 — PNG/SVG 캡처 대상 아님) -->
   <div id="map-warn" style="position:absolute;top:16px;right:56px;background:rgba(10,11,14,.45);border:1px solid rgba(247,80,80,.2);border-radius:3px;padding:5px 12px;font-family:var(--mono);font-size:8px;color:rgba(240,128,128,.75);letter-spacing:.02em;line-height:1.6;pointer-events:none;backdrop-filter:blur(6px);z-index:90;max-width:240px">※ 분쟁 지역·논란 국경선은 반드시 교차 검증 후 사용</div>
+  <!-- 뷰포트 컬러 프리셋 칩 (다중 선택 채우기용 빠른 피커) -->
+  <div id="map-presets" style="position:absolute;top:46px;right:56px;background:rgba(10,11,14,.45);border:1px solid var(--border2);border-radius:3px;padding:6px 12px;font-family:var(--mono);backdrop-filter:blur(6px);z-index:90;display:flex;align-items:center;gap:8px;max-width:276px">
+    <span style="font-size:9px;color:var(--text3);white-space:nowrap;letter-spacing:.04em">컬러 프리셋</span>
+    <div style="display:flex;gap:6px">
+      <div class="preset-swatch" title="#E9CC8E" style="background:#E9CC8E;width:26px;height:26px" onclick="applyFillPreset('#E9CC8E')"></div>
+      <div class="preset-swatch" title="#BEB2A3" style="background:#BEB2A3;width:26px;height:26px" onclick="applyFillPreset('#BEB2A3')"></div>
+      <div class="preset-swatch" title="#BBBEA3" style="background:#BBBEA3;width:26px;height:26px" onclick="applyFillPreset('#BBBEA3')"></div>
+    </div>
+  </div>
 </div>
 
 <!-- PNG Modal -->
@@ -370,11 +378,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 
 <script>
 /*
- * NEWSROOM WORLD MAP Editor — v2.8.4  (2026-04-01)
+ * NEWSROOM WORLD MAP Editor — v2.8.8  (2026-04-01)
  * ──────────────────────────────────────────────────
- * [수정 1] SVG 사이즈 선택 모달 (PNG과 동일 UI)
- * [수정 2] SVG turf.union 타일 병합 (면 분할 제거) + fill-antialias:false
- * [수정 3] 3D 지형 토글 제거, 채우기 불투명도 기본 100%
+ * [수정 1] 비선택 국가 UI 제거 → 내륙 표시 토글 추가 (Rivers/Borders overlay)
+ * [수정 2] 뷰포트 컬러 프리셋 칩 (경고 배지 아래)
+ * [수정 3] 내륙 오버레이: PNG/SVG 내보내기 시 포함
  * JTBC 뉴스디자인팀 내부 전용
  */
 var COUNTRIES=[
@@ -562,7 +570,7 @@ function applyBaseMapColors(){
 
   map.getStyle().layers.forEach(function(l){
     var id=l.id, t=l.type;
-    if(CUSTOM[id])return;
+    if(CUSTOM[id]||/^inland-/.test(id))return;
     try{
       if(t==='background'){
         map.setPaintProperty(id,'background-color',LAND);
@@ -1365,9 +1373,11 @@ function applyMultiColors(){
 }
 function syncStyle(){
   if(!map)return;
-  var bc=gv('c-border'),bw=gf('sl-bw'),bo=gf('sl-bo'),fc=gv('c-fill'),fo=gf('sl-fo'),oc=gv('c-other'),oo=gf('sl-oo');
-  setSw('sw-border','hx-border',bc);setSw('sw-fill','hx-fill',fc);setSw('sw-other','hx-other',oc);
-  setTxt('vl-bw',bw+'px');setTxt('vl-bo',pct(bo));setTxt('vl-fo',pct(fo));setTxt('vl-oo',pct(oo));
+  var bc=gv('c-border'),bw=gf('sl-bw'),bo=gf('sl-bo'),fc=gv('c-fill'),fo=gf('sl-fo');
+  /* v2.8.8: 비선택 국가 UI 제거 → 고정값 (투명) */
+  var oc='#161820',oo=0;
+  setSw('sw-border','hx-border',bc);setSw('sw-fill','hx-fill',fc);
+  setTxt('vl-bw',bw+'px');setTxt('vl-bo',pct(bo));setTxt('vl-fo',pct(fo));
   var fillRgba=hexToRgba(fc,fo);
   var otherRgba=hexToRgba(oc,oo);
   try{
@@ -1405,10 +1415,93 @@ function toggleRoads(){
     }
   });
 }
+
+/* ── 내륙 표시 (v2.8.8) ──
+ * 채우기 위에 내륙 수계(강/호수)와 행정경계 라인을 오버레이.
+ * 기본 스타일의 water-line/admin-line 레이어를 복제하여
+ * sel-fill/region-fill 위, sel-line/region-line 아래에 배치.
+ * PNG 전체 캡처 및 SVG 내보내기 시 함께 캡처됨. */
+var inlandLayerIds=[];
+function addInlandOverlay(){
+  removeInlandOverlay();
+  if(!map)return;
+  /* v2.8.8: 수체 fill 색상을 기본 바다색(#9CA9BB)과 동일하게 설정
+   * → 대양 위에서는 동색 중첩이라 시각 변화 없음 (어두워지지 않음)
+   * → 채우기 위에서는 호수/강 폴리곤이 바다색으로 표시됨 */
+  var BASE_SEA='#9CA9BB';
+  var WATER_LINE_COLOR='#7B8FA3';
+  var ADMIN_COLOR='#9CA9BB';
+  var WATER_RE=/water|waterway|river|lake|reservoir|canal|stream|drain/i;
+  var ADMIN_RE=/admin|boundary|border/i;
+  var CUSTOM_RE=/^sel-|^others-|^region-|^hit-|^water-clip|^inland-/;
+  var beforeId='sel-line';
+
+  map.getStyle().layers.forEach(function(l){
+    if(CUSTOM_RE.test(l.id))return;
+    var isWaterLine=(l.type==='line'&&WATER_RE.test(l.id));
+    var isAdminLine=(l.type==='line'&&ADMIN_RE.test(l.id)&&!/-bg$/i.test(l.id));
+    var isWaterFill=(l.type==='fill'&&WATER_RE.test(l.id));
+    if(!isWaterLine&&!isAdminLine&&!isWaterFill)return;
+
+    var oid='inland-'+l.id;
+    if(map.getLayer(oid))return;
+    try{
+      var spec={id:oid,type:l.type,source:l.source};
+      if(l['source-layer'])spec['source-layer']=l['source-layer'];
+      if(l.filter)spec.filter=l.filter;
+      if(l.minzoom)spec.minzoom=l.minzoom;
+      if(l.maxzoom)spec.maxzoom=l.maxzoom;
+
+      if(l.type==='line'){
+        spec.paint={
+          'line-color':isWaterLine?WATER_LINE_COLOR:ADMIN_COLOR,
+          'line-width':isAdminLine?0.6:1,
+          'line-opacity':0.75
+        };
+      }else if(l.type==='fill'){
+        /* 기본 바다색과 동일 → 대양 무변화, 채우기 위 호수만 시각적 표시 */
+        spec.paint={
+          'fill-color':BASE_SEA,
+          'fill-opacity':1
+        };
+      }
+      spec.layout={'visibility':'none'};
+      map.addLayer(spec,beforeId);
+      inlandLayerIds.push(oid);
+    }catch(e){}
+  });
+
+  /* 국경선(sel-line, region-line)을 항상 최상위로 강제 이동 */
+  try{
+    if(map.getLayer('sel-line'))map.moveLayer('sel-line','water-clip');
+    if(map.getLayer('region-line'))map.moveLayer('region-line','water-clip');
+  }catch(e){}
+}
+function removeInlandOverlay(){
+  if(!map)return;
+  inlandLayerIds.forEach(function(id){
+    try{if(map.getLayer(id))map.removeLayer(id);}catch(e){}
+  });
+  inlandLayerIds=[];
+}
+function toggleInland(){
+  var show=document.getElementById('tg-inland')&&document.getElementById('tg-inland').checked;
+  if(show&&!inlandLayerIds.length)addInlandOverlay();
+  inlandLayerIds.forEach(function(id){
+    try{map.setLayoutProperty(id,'visibility',show?'visible':'none');}catch(e){}
+  });
+  /* water-clip 상태는 applyRegion()이 관리 — 내륙 토글로 건드리지 않음 (바다색 유지) */
+}
+
 /* 스타일 전환 시 토글 상태 재적용 */
 function applyToggles(){
   if(!document.getElementById('tg-labels').checked) toggleLabels();
   toggleRoads();
+  /* 내륙 오버레이 재생성 */
+  if(document.getElementById('tg-inland')&&document.getElementById('tg-inland').checked){
+    addInlandOverlay();
+    toggleInland();
+  }
 }
 
 /* ── JSON Export ── */
@@ -1476,10 +1569,16 @@ function exportSVG(){
     if(ring.length<3)return'';
     return'M'+ring.map(proj).join('L')+'Z';
   }
+  function lineToPath(coords){
+    if(coords.length<2)return'';
+    return'M'+coords.map(proj).join('L');
+  }
   function geomToPath(g){
     if(!g)return'';
     if(g.type==='Polygon')return g.coordinates.map(ringToPath).join(' ');
     if(g.type==='MultiPolygon')return g.coordinates.map(function(poly){return poly.map(ringToPath).join(' ');}).join(' ');
+    if(g.type==='LineString')return lineToPath(g.coordinates);
+    if(g.type==='MultiLineString')return g.coordinates.map(lineToPath).join(' ');
     return'';
   }
 
@@ -1491,7 +1590,7 @@ function exportSVG(){
     var itemFc=s.fillColor||fc;
     var itemBc=s.borderColor||bc;
     if(s.type==='country'){
-      /* v2.8.4: 타일별 geometry를 turf.union()으로 단일 폴리곤 병합
+      /* v2.8.8: 타일별 geometry를 turf.union()으로 단일 폴리곤 병합
        * → 일러스트레이터에서 면 분할 없는 하나의 shape */
       var feats=map.queryRenderedFeatures({layers:['sel-fill']}).filter(function(f){
         return f.properties&&f.properties.iso_3166_1===s.code;
@@ -1566,6 +1665,27 @@ function exportSVG(){
     svg.push('    stroke-linejoin="round"/>');
   });
   svg.push('</g>');
+
+  /* ── 3b. 내륙 오버레이 (토글 ON일 때) ── */
+  var inlandOn=document.getElementById('tg-inland')&&document.getElementById('tg-inland').checked;
+  if(inlandOn&&inlandLayerIds.length){
+    var inlandParts=[];
+    inlandLayerIds.forEach(function(lid){
+      try{
+        var feats=map.queryRenderedFeatures({layers:[lid]});
+        feats.forEach(function(f){
+          if(f.geometry){var p=geomToPath(f.geometry);if(p)inlandParts.push(p);}
+        });
+      }catch(e){}
+    });
+    if(inlandParts.length){
+      var inlandD=inlandParts.join(' ');
+      svg.push('<g id="inland-overlay"'+maskAttr+'>');
+      svg.push('  <path d="'+inlandD+'" fill="none" stroke="#9CA9BB" stroke-width="0.8" stroke-opacity="0.7" stroke-linejoin="round"/>');
+      svg.push('</g>');
+    }
+  }
+
   svg.push('</svg>');
 
   /* ── 4. 다운로드 ── */
@@ -1988,6 +2108,44 @@ function exportSelPNG(){
     });
   }
 
+  /* ── 내륙 오버레이 합성 (sel-PNG, v2.8.8) ──
+   * 내륙 표시 ON일 때 inland 레이어를 별도 캡처 → 선택 영역 안에만 합성 */
+  var inlandOn=document.getElementById('tg-inland')&&document.getElementById('tg-inland').checked&&inlandLayerIds.length>0;
+
+  function captureInlandOverlay(maskData,outputCanvas,cb){
+    if(!inlandOn){cb(outputCanvas);return;}
+    captureMap(function(saved){
+      /* inland 레이어만 표시, 나머지 전부 숨김 */
+      map.getStyle().layers.forEach(function(l){
+        if(/^inland-/.test(l.id)){
+          /* 이미 visible 상태 유지 */
+        }else{
+          try{var v=map.getLayoutProperty(l.id,'visibility');
+            if(v!=='none'){map.setLayoutProperty(l.id,'visibility','none');saved.layers.push(l.id);}}catch(e){}
+        }
+      });
+      try{saved.bg={c:map.getPaintProperty('background','background-color'),o:map.getPaintProperty('background','background-opacity')};
+        map.setPaintProperty('background','background-color','#000000');
+        map.setPaintProperty('background','background-opacity',1);}catch(e){}
+    },function(inlandBlob){
+      blobToData(inlandBlob,function(inlandData){
+        /* 선택 영역(mask 흰색) 안에서 inland 색상 픽셀을 output 위에 합성 */
+        var ctx=outputCanvas.getContext('2d');
+        var oi=ctx.getImageData(0,0,W,H);
+        var od=oi.data;
+        for(var i=0;i<od.length;i+=4){
+          if(maskData[i]<128)continue; /* 선택 영역 밖 → 무시 */
+          var ir=inlandData[i],ig=inlandData[i+1],ib=inlandData[i+2];
+          if(ir>12||ig>12||ib>12){ /* inland 색상 픽셀 */
+            od[i]=ir;od[i+1]=ig;od[i+2]=ib;od[i+3]=Math.max(od[i+3],180);
+          }
+        }
+        ctx.putImageData(oi,0,0);
+        cb(outputCanvas);
+      });
+    });
+  }
+
   /* ── 실행 흐름: 다중컬러 여부에 따라 분기 ── */
   var isMultiColor=appMode==='multi'&&selections.some(function(s){return s.fillColor||s.borderColor;});
   if(isMultiColor){
@@ -1997,7 +2155,10 @@ function exportSelPNG(){
     var captureFn=hasRegions?captureShapeMaskWithWater:captureShapeMask;
     captureFn(function(shapeBlob){
       blobToData(shapeBlob,function(shapeData){
-        saveCanvas(renderOutput(shapeData));
+        var output=renderOutput(shapeData);
+        captureInlandOverlay(shapeData,output,function(finalCanvas){
+          saveCanvas(finalCanvas);
+        });
       });
     });
   }
@@ -2044,7 +2205,7 @@ function scaleAndSave(srcCanvas,size,transparent,cb){
   var ctx=c.getContext('2d');
   if(transparent)ctx.clearRect(0,0,c.width,c.height);
 
-  /* v2.8.4: 비율 유지 contain 스케일링 — 모니터 비율 무관 정상 출력 */
+  /* v2.8.8: 비율 유지 contain 스케일링 — 모니터 비율 무관 정상 출력 */
   var sw=srcCanvas.width,sh=srcCanvas.height;
   var tw=size.w,th=size.h;
   var scale=Math.min(tw/sw,th/sh);

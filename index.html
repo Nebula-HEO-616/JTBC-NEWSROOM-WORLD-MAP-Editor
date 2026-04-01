@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NEWSROOM WORLD MAP Editor v2.8.2</title>
+<title>NEWSROOM WORLD MAP Editor v2.8.4</title>
 <script src='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js'></script>
 <link href='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css' rel='stylesheet'/>
 <!-- osmtogeojson: Overpass API → GeoJSON 변환 (해안선 정밀 경계용) -->
@@ -202,7 +202,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       </div>
       <div class="token-hint">팀 내부 전용 도구입니다. 비밀번호는 허성운 디자이너에게 문의하세요.</div>
       <div class="login-err" id="login-err">&#9888; 비밀번호가 올바르지 않습니다.</div>
-      <div style="text-align:right;margin-top:16px;font-size:9px;color:var(--text3);letter-spacing:.06em">Made by Seong un &nbsp;·&nbsp; v2.8.2</div>
+      <div style="text-align:right;margin-top:16px;font-size:9px;color:var(--text3);letter-spacing:.06em">Made by Seong un &nbsp;·&nbsp; v2.8.4</div>
     </div>
   </div>
   <!-- 로그인 경고문구 -->
@@ -254,7 +254,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <div class="section">
         <div class="section-label">내부 채우기</div>
         <div class="color-row"><span class="color-label">채우기 색상</span><div class="color-swatch-wrap"><div class="color-swatch" id="sw-fill" style="background:#e9cc8e"><input type="color" id="c-fill" value="#e9cc8e" oninput="updateStyle()"></div><span class="color-hex" id="hx-fill">#E9CC8E</span></div></div>
-        <div class="slider-row"><span class="slider-label">채우기 투명도</span><input type="range" id="sl-fo" min="0" max="1" step=".05" value=".8" oninput="updateStyle()"><span class="slider-val" id="vl-fo">80%</span></div>
+        <div class="slider-row"><span class="slider-label">채우기 투명도</span><input type="range" id="sl-fo" min="0" max="1" step=".05" value="1" oninput="updateStyle()"><span class="slider-val" id="vl-fo">100%</span></div>
         <div class="color-row" style="margin-top:6px">
           <span class="color-label" style="font-size:10px;color:var(--text3)">컬러 프리셋</span>
           <div style="display:flex;gap:5px">
@@ -299,7 +299,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   <div id="statusbar"><div class="status-dot"></div><span id="status-text">지도 로드 중...</span></div>
   <div id="hint">지도를 클릭하여 국가를 선택하세요</div>
   <!-- 뷰포트 경고 배지 (DOM 요소 — PNG/SVG 캡처 대상 아님) -->
-  <div id="map-warn" style="position:absolute;top:16px;right:56px;background:rgba(10,11,14,.45);border:1px solid rgba(247,80,80,.2);border-radius:3px;padding:4px 10px;font-family:var(--mono);font-size:7px;color:rgba(240,128,128,.7);letter-spacing:.02em;line-height:1.5;pointer-events:none;backdrop-filter:blur(6px);z-index:90;max-width:220px">※ 분쟁 지역·논란 국경선은 반드시 교차 검증 후 사용</div>
+  <div id="map-warn" style="position:absolute;top:16px;right:56px;background:rgba(10,11,14,.45);border:1px solid rgba(247,80,80,.2);border-radius:3px;padding:5px 12px;font-family:var(--mono);font-size:8px;color:rgba(240,128,128,.75);letter-spacing:.02em;line-height:1.6;pointer-events:none;backdrop-filter:blur(6px);z-index:90;max-width:240px">※ 분쟁 지역·논란 국경선은 반드시 교차 검증 후 사용</div>
 </div>
 
 <!-- PNG Modal -->
@@ -370,11 +370,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 
 <script>
 /*
- * NEWSROOM WORLD MAP Editor — v2.8.2  (2026-04-01)
+ * NEWSROOM WORLD MAP Editor — v2.8.4  (2026-04-01)
  * ──────────────────────────────────────────────────
  * [수정 1] SVG 사이즈 선택 모달 (PNG과 동일 UI)
- * [수정 2] 타일 경계 줄무늬 해결: fill-antialias:false + SVG path 병합
- * [수정 3] 3D 지형 토글 제거
+ * [수정 2] SVG turf.union 타일 병합 (면 분할 제거) + fill-antialias:false
+ * [수정 3] 3D 지형 토글 제거, 채우기 불투명도 기본 100%
  * JTBC 뉴스디자인팀 내부 전용
  */
 var COUNTRIES=[
@@ -1483,7 +1483,7 @@ function exportSVG(){
     return'';
   }
 
-  /* ── 1. 선택 영역 path 수집 (국가: 타일 feature 병합) ── */
+  /* ── 1. 선택 영역 path 수집 (국가: turf.union으로 타일 조각 병합) ── */
   var regionPaths=[];
   var hasRegion=false;
 
@@ -1491,17 +1491,30 @@ function exportSVG(){
     var itemFc=s.fillColor||fc;
     var itemBc=s.borderColor||bc;
     if(s.type==='country'){
-      /* v2.8.1: 국가 — 모든 타일 feature의 path를 하나로 병합 (타일 경계 갭 제거) */
+      /* v2.8.4: 타일별 geometry를 turf.union()으로 단일 폴리곤 병합
+       * → 일러스트레이터에서 면 분할 없는 하나의 shape */
       var feats=map.queryRenderedFeatures({layers:['sel-fill']}).filter(function(f){
         return f.properties&&f.properties.iso_3166_1===s.code;
       });
-      var merged='';
-      feats.forEach(function(f){
-        var d=geomToPath(f.geometry);
-        if(d)merged+=d+' ';
-      });
-      merged=merged.trim();
-      if(merged)regionPaths.push({d:merged,fill:itemFc,fillOp:fo,stroke:itemBc,strokeW:bw,strokeOp:bo});
+      if(feats.length&&window.turf){
+        try{
+          var unified=turf.feature(feats[0].geometry);
+          for(var fi=1;fi<feats.length;fi++){
+            try{unified=turf.union(unified,turf.feature(feats[fi].geometry));}catch(ue){}
+          }
+          var d=geomToPath(unified.geometry);
+          if(d)regionPaths.push({d:d,fill:itemFc,fillOp:fo,stroke:itemBc,strokeW:bw,strokeOp:bo});
+        }catch(e){
+          /* fallback: 병합 실패 시 기존 방식 */
+          var merged='';
+          feats.forEach(function(f){var d=geomToPath(f.geometry);if(d)merged+=d+' ';});
+          if(merged.trim())regionPaths.push({d:merged.trim(),fill:itemFc,fillOp:fo,stroke:itemBc,strokeW:bw,strokeOp:bo});
+        }
+      }else{
+        var merged='';
+        feats.forEach(function(f){var d=geomToPath(f.geometry);if(d)merged+=d+' ';});
+        if(merged.trim())regionPaths.push({d:merged.trim(),fill:itemFc,fillOp:fo,stroke:itemBc,strokeW:bw,strokeOp:bo});
+      }
     }else if(s.type==='region'&&s.geojson){
       hasRegion=true;
       var d=geomToPath(s.geojson.geometry);
@@ -2030,7 +2043,14 @@ function scaleAndSave(srcCanvas,size,transparent,cb){
   var c=document.createElement('canvas');c.width=size.w;c.height=size.h;
   var ctx=c.getContext('2d');
   if(transparent)ctx.clearRect(0,0,c.width,c.height);
-  ctx.drawImage(srcCanvas,0,0,c.width,c.height);
+
+  /* v2.8.4: 비율 유지 contain 스케일링 — 모니터 비율 무관 정상 출력 */
+  var sw=srcCanvas.width,sh=srcCanvas.height;
+  var tw=size.w,th=size.h;
+  var scale=Math.min(tw/sw,th/sh);
+  var dw=sw*scale,dh=sh*scale;
+  var ox=(tw-dw)/2,oy=(th-dh)/2;
+  ctx.drawImage(srcCanvas,0,0,sw,sh,ox,oy,dw,dh);
   c.toBlob(cb,'image/png');
 }
 

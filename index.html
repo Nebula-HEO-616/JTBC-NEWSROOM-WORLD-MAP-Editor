@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NEWSROOM WORLD MAP Editor v2.8.9</title>
+<title>NEWSROOM WORLD MAP Editor v2.9.0</title>
 <!-- Open Graph: 메신저 공유 시 썸네일 -->
 <meta property="og:title" content="NEWSROOM WORLD MAP Editor — JTBC">
 <meta property="og:description" content="JTBC 뉴스디자인팀 · 국가·지역 국경 맵 에디터">
@@ -207,7 +207,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       </div>
       <div class="token-hint">팀 내부 전용 도구입니다. 비밀번호는 허성운 디자이너에게 문의하세요.</div>
       <div class="login-err" id="login-err">&#9888; 비밀번호가 올바르지 않습니다.</div>
-      <div style="text-align:right;margin-top:16px;font-size:9px;color:var(--text3);letter-spacing:.06em">Made by Seong un &nbsp;·&nbsp; v2.8.9</div>
+      <div style="text-align:right;margin-top:16px;font-size:9px;color:var(--text3);letter-spacing:.06em">Made by Seong un &nbsp;·&nbsp; v2.9.0</div>
     </div>
   </div>
   <!-- 로그인 경고문구 -->
@@ -383,7 +383,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 
 <script>
 /*
- * NEWSROOM WORLD MAP Editor — v2.8.9  (2026-04-01)
+ * NEWSROOM WORLD MAP Editor — v2.9.0  (2026-04-01)
  * ──────────────────────────────────────────────────
  * [수정 1] 비선택 국가 UI 제거 → 내륙 표시 토글 추가 (Rivers/Borders overlay)
  * [수정 2] 뷰포트 컬러 프리셋 칩 (경고 배지 아래)
@@ -1043,9 +1043,15 @@ function fetchRegion(name,fullName,bbox,center){
     return geoDist(featureCenter(f))<=maxDist;
   }
 
-  /* 유효 결과 중 최적 선택 (bbox 크기 근접도) */
+  /* 유효 결과 중 최적 선택 (bbox 크기 근접도)
+   * v2.9.0: Point/node 전용 결과는 제외 → Overpass admin fallback으로 이동 */
   function pickBest(features){
-    var valid=features.filter(isValid);
+    var valid=features.filter(function(f){
+      if(!isValid(f))return false;
+      /* 폴리곤 geometry가 있는 결과만 채택 */
+      var gt=f.geometry&&f.geometry.type;
+      return gt==='Polygon'||gt==='MultiPolygon';
+    });
     if(!valid.length)return null;
     if(!refArea||valid.length===1)return valid[0];
     var best=null,bestScore=Infinity;
@@ -1201,12 +1207,105 @@ function fetchRegion(name,fullName,bbox,center){
   if(fullName&&fullName!==enclosing)queries.push(fullName);
   if(name&&name!==fullName&&name!==enclosing)queries.push(name);
 
+  /* ── Overpass admin_level 직접 검색 (Nominatim 폴리곤 없을 때 fallback)
+   * v2.9.0: 중동·아프리카 등 Nominatim 폴리곤 커버리지가 낮은 지역 대응
+   * center 좌표 주변의 admin boundary relation을 직접 검색 */
+  function tryOverpassAdmin(cb){
+    if(!center&&!bbox){cb(null);return;}
+    var cx=center?center[0]:(bbox[0]+bbox[2])/2;
+    var cy=center?center[1]:(bbox[1]+bbox[3])/2;
+    setStatus('"'+name+'" Overpass 행정경계 검색 중...');
+
+    /* around 쿼리: 중심점 주변 50km 내 admin boundary relation */
+    var query='[out:json][timeout:20];'
+      +'is_in('+cy+','+cx+')->.a;'
+      +'relation(pivot.a)["boundary"="administrative"];'
+      +'out body;>;out skel qt;';
+    var ctrl=new AbortController();
+    var tid=setTimeout(function(){ctrl.abort();},18000);
+
+    fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query),{signal:ctrl.signal})
+    .then(function(r){clearTimeout(tid);return r.json();})
+    .then(function(data){
+      if(!window.osmtogeojson||!data.elements||!data.elements.length){cb(null);return;}
+      var gj=window.osmtogeojson(data);
+      var feats=(gj.features||[]).filter(function(f){
+        return f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon');
+      });
+      if(!feats.length){cb(null);return;}
+
+      /* 이름 매칭 → 면적 근접성 순으로 최적 선택 */
+      var nameLC=name.toLowerCase();
+      var nameMatch=feats.filter(function(f){
+        var p=f.properties||{};
+        var names=[p.name,p['name:ko'],p['name:en'],p['name:ar'],p['name:fa'],p.official_name,p.alt_name].filter(Boolean);
+        return names.some(function(n){return n.toLowerCase().indexOf(nameLC)>=0||nameLC.indexOf(n.toLowerCase())>=0;});
+      });
+
+      var candidates=nameMatch.length?nameMatch:feats;
+      /* bbox가 있으면 면적 근접성, 없으면 가장 작은(가장 상세한) 폴리곤 */
+      var best=null;
+      if(refArea&&candidates.length>1){
+        var bestScore=Infinity;
+        candidates.forEach(function(f){
+          var fa=featureArea(f);if(!fa)return;
+          var score=Math.abs(fa-refArea)/Math.max(refArea,0.001);
+          if(score<bestScore){bestScore=score;best=f;}
+        });
+      }
+      if(!best){
+        best=candidates.reduce(function(b,f){
+          var fa=featureArea(f);var ba=b?featureArea(b):Infinity;
+          return(fa>0&&fa<ba)?f:b;
+        },null);
+      }
+      if(best){best.properties=best.properties||{};cb(best);}
+      else{cb(null);}
+    })
+    .catch(function(e){
+      clearTimeout(tid);
+      console.warn('[OverpassAdmin] 실패:',e.message||e);
+      cb(null);
+    });
+  }
+
+  /* ── bbox 기반 근사 폴리곤 (최종 fallback) ── */
+  function makeBboxPolygon(){
+    if(!bbox)return null;
+    var w=bbox[0],s=bbox[1],e=bbox[2],n=bbox[3];
+    /* 약간 패딩 추가 (점 데이터 bbox가 너무 작은 경우) */
+    var dw=e-w,dh=n-s;
+    if(dw<0.01){w-=0.02;e+=0.02;}
+    if(dh<0.01){s-=0.02;n+=0.02;}
+    return{
+      type:'Feature',
+      geometry:{type:'Polygon',coordinates:[[[w,s],[e,s],[e,n],[w,n],[w,s]]]},
+      properties:{_bboxFallback:true}
+    };
+  }
+
   /* 순차 실행: Nominatim → Overpass 정밀 경계 → 해안선 클리핑 → applyResult */
   var idx=0;
   function tryNext(){
     if(idx>=queries.length){
-      if(bbox){fitBbox(bbox);setStatus('"'+name+'" 경계 없음 — bbox 표시');}
-      else if(center)map.flyTo({center:center,zoom:7,duration:1000});
+      /* v2.9.0: Nominatim 실패 → Overpass admin 직접 검색 → bbox 근사 */
+      tryOverpassAdmin(function(adminFeat){
+        if(adminFeat){
+          setStatus('"'+name+'" Overpass 경계 발견');
+          clipRegionToLand(adminFeat,bbox,name,function(clipped){applyResult(clipped);});
+        }else{
+          /* 최종 fallback: bbox 근사 폴리곤 */
+          var bboxFeat=makeBboxPolygon();
+          if(bboxFeat){
+            setStatus('"'+name+'" bbox 근사 표시');
+            clipRegionToLand(bboxFeat,bbox,name,function(clipped){applyResult(clipped);});
+          }else if(bbox){
+            fitBbox(bbox);setStatus('"'+name+'" 경계 없음 — bbox 표시');
+          }else if(center){
+            map.flyTo({center:center,zoom:7,duration:1000});
+          }
+        }
+      });
       return;
     }
     var q=queries[idx++];
@@ -1379,7 +1478,7 @@ function applyMultiColors(){
 function syncStyle(){
   if(!map)return;
   var bc=gv('c-border'),bw=gf('sl-bw'),bo=gf('sl-bo'),fc=gv('c-fill'),fo=gf('sl-fo');
-  /* v2.8.9: 비선택 국가 UI 제거 → 고정값 (투명) */
+  /* v2.9.0: 비선택 국가 UI 제거 → 고정값 (투명) */
   var oc='#161820',oo=0;
   setSw('sw-border','hx-border',bc);setSw('sw-fill','hx-fill',fc);
   setTxt('vl-bw',bw+'px');setTxt('vl-bo',pct(bo));setTxt('vl-fo',pct(fo));
@@ -1421,7 +1520,7 @@ function toggleRoads(){
   });
 }
 
-/* ── 내륙 표시 (v2.8.9) ──
+/* ── 내륙 표시 (v2.9.0) ──
  * 채우기 위에 내륙 수계(강/호수)와 행정경계 라인을 오버레이.
  * 기본 스타일의 water-line/admin-line 레이어를 복제하여
  * sel-fill/region-fill 위, sel-line/region-line 아래에 배치.
@@ -1430,7 +1529,7 @@ var inlandLayerIds=[];
 function addInlandOverlay(){
   removeInlandOverlay();
   if(!map)return;
-  /* v2.8.9: 수체 fill 색상을 기본 바다색(#9CA9BB)과 동일하게 설정
+  /* v2.9.0: 수체 fill 색상을 기본 바다색(#9CA9BB)과 동일하게 설정
    * → 대양 위에서는 동색 중첩이라 시각 변화 없음 (어두워지지 않음)
    * → 채우기 위에서는 호수/강 폴리곤이 바다색으로 표시됨 */
   var BASE_SEA='#9CA9BB';
@@ -1565,7 +1664,7 @@ function exportSVG(){
   var outW=targetSz?targetSz.w:vbW;
   var outH=targetSz?targetSz.h:vbH;
 
-  /* v2.8.9: viewBox를 타겟 비율에 맞게 중앙 크롭
+  /* v2.9.0: viewBox를 타겟 비율에 맞게 중앙 크롭
    * → SVG가 타겟 전체를 지도로 채움 (상하/좌우 빈 공간 없음) */
   var svgVbX=0,svgVbY=0,svgVbW=vbW,svgVbH=vbH;
   if(targetSz){
@@ -1612,7 +1711,7 @@ function exportSVG(){
     var itemFc=s.fillColor||fc;
     var itemBc=s.borderColor||bc;
     if(s.type==='country'){
-      /* v2.8.9: 타일별 geometry를 turf.union()으로 단일 폴리곤 병합
+      /* v2.9.0: 타일별 geometry를 turf.union()으로 단일 폴리곤 병합
        * → 일러스트레이터에서 면 분할 없는 하나의 shape */
       var feats=map.queryRenderedFeatures({layers:['sel-fill']}).filter(function(f){
         return f.properties&&f.properties.iso_3166_1===s.code;
@@ -2130,7 +2229,7 @@ function exportSelPNG(){
     });
   }
 
-  /* ── 내륙 오버레이 합성 (sel-PNG, v2.8.9) ──
+  /* ── 내륙 오버레이 합성 (sel-PNG, v2.9.0) ──
    * 내륙 표시 ON일 때 inland 레이어를 별도 캡처 → 선택 영역 안에만 합성 */
   var inlandOn=document.getElementById('tg-inland')&&document.getElementById('tg-inland').checked&&inlandLayerIds.length>0;
 
@@ -2227,7 +2326,7 @@ function scaleAndSave(srcCanvas,size,transparent,cb){
   var ctx=c.getContext('2d');
   if(transparent)ctx.clearRect(0,0,c.width,c.height);
 
-  /* v2.8.9: cover 스케일링 — 타겟 전체를 지도로 채움 (중앙 크롭)
+  /* v2.9.0: cover 스케일링 — 타겟 전체를 지도로 채움 (중앙 크롭)
    * 소스에서 타겟 비율에 맞는 영역을 중앙 기준으로 잘라 타겟 전체에 그림 */
   var sw=srcCanvas.width,sh=srcCanvas.height;
   var tw=size.w,th=size.h;

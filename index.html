@@ -1736,7 +1736,7 @@ function setPngMode(mode){
   var sub=document.getElementById('png-modal-sub');
   if(mode==='sel'){
     sub.innerHTML=selections.length
-      ?'<b style="color:var(--text)">'+esc(selections.map(function(s){return s.name;}).join(', '))+'</b><br>선택 영역만 표시, 나머지는 투명(Alpha=0)하게 저장됩니다.'
+      ?'<b style="color:var(--text)">'+esc(selections.map(function(s){return s.name;}).join(', '))+'</b><br>선택 영역만 표시, 나머지는 투명하게 저장됩니다.'
       :'국가를 먼저 선택하세요.';
   }else{
     sub.innerHTML='현재 카메라 뷰를 그대로 저장합니다.<br><span style="color:var(--text3)">모든 레이어 · 지형 · 라벨 포함</span>';

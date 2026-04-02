@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEWSROOM WORLD MAP Editor v2.8.9</title>
+<!-- Open Graph: 메신저 공유 시 썸네일 -->
+<meta property="og:title" content="NEWSROOM WORLD MAP Editor — JTBC">
+<meta property="og:description" content="JTBC 뉴스디자인팀 · 국가·지역 국경 맵 에디터">
+<meta property="og:image" content="https://github.com/Nebula-HEO-616/JTBC-WORLDMAP-ASSETS/raw/main/_260402_Worldmap_Thumbnail.jpg">
+<meta property="og:type" content="website">
 <script src='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js'></script>
 <link href='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css' rel='stylesheet'/>
 <!-- osmtogeojson: Overpass API → GeoJSON 변환 (해안선 정밀 경계용) -->
@@ -1736,7 +1741,7 @@ function setPngMode(mode){
   var sub=document.getElementById('png-modal-sub');
   if(mode==='sel'){
     sub.innerHTML=selections.length
-      ?'<b style="color:var(--text)">'+esc(selections.map(function(s){return s.name;}).join(', '))+'</b><br>선택 영역만 표시, 나머지는 투명하게 저장됩니다.'
+      ?'<b style="color:var(--text)">'+esc(selections.map(function(s){return s.name;}).join(', '))+'</b><br>선택 영역만 표시, 나머지는 투명(Alpha=0)하게 저장됩니다.'
       :'국가를 먼저 선택하세요.';
   }else{
     sub.innerHTML='현재 카메라 뷰를 그대로 저장합니다.<br><span style="color:var(--text3)">모든 레이어 · 지형 · 라벨 포함</span>';
